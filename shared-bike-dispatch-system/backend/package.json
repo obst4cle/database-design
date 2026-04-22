@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/server.js",
+    "dev": "nodemon src/server.js",
     "start": "node src/server.js"
   },
   "dependencies": {
@@ -14,5 +14,8 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.15.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
   }
 }
