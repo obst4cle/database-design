@@ -1,6 +1,6 @@
 import express from 'express'
 import cors from 'cors'
-import { pool, query } from './db.js'
+import { pool, query, withTransaction } from './db.js'
 import authRouter from './routes/auth.js'
 import usersRouter from './routes/users.js'
 import stationsRouter from './routes/stations.js'
@@ -10,11 +10,12 @@ import couponsRouter from './routes/coupons.js'
 import staffsRouter from './routes/staffs.js'
 import maintenanceRouter from './routes/maintenance.js'
 import dispatchRouter from './routes/dispatch.js'
+import transactionsRouter from './routes/transactions.js'
 import dashboardRouter from './routes/dashboard.js'
 
 const app = express()
 
-app.locals.db = { query }
+app.locals.db = { query, withTransaction }
 app.locals.pool = pool
 
 app.use(cors())
@@ -33,6 +34,7 @@ app.use('/api/coupons', couponsRouter)
 app.use('/api/staffs', staffsRouter)
 app.use('/api/maintenance-logs', maintenanceRouter)
 app.use('/api/dispatch-tasks', dispatchRouter)
+app.use('/api/transactions', transactionsRouter)
 app.use('/api/dashboard', dashboardRouter)
 
 app.use((error, req, res, next) => {

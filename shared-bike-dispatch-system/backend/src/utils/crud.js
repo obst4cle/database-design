@@ -9,23 +9,50 @@ function pick(source, fields) {
   }, {})
 }
 
+function isRawSqlValue(value) {
+  return Boolean(value && typeof value === 'object' && value.__rawSql)
+}
+
 function buildInsertSql(table, data) {
   const keys = Object.keys(data)
-  const columns = keys.join(', ')
-  const placeholders = keys.map(() => '?').join(', ')
-  const values = keys.map((key) => data[key])
+  const columns = []
+  const placeholders = []
+  const values = []
+
+  for (const key of keys) {
+    const value = data[key]
+    columns.push(key)
+    if (isRawSqlValue(value)) {
+      placeholders.push(value.__rawSql)
+      continue
+    }
+    placeholders.push('?')
+    values.push(value)
+  }
+
   return {
-    sql: `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`,
+    sql: `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`,
     values
   }
 }
 
 function buildUpdateSql(table, data) {
   const keys = Object.keys(data)
-  const setters = keys.map((key) => `${key} = ?`).join(', ')
-  const values = keys.map((key) => data[key])
+  const setters = []
+  const values = []
+
+  for (const key of keys) {
+    const value = data[key]
+    if (isRawSqlValue(value)) {
+      setters.push(`${key} = ${value.__rawSql}`)
+      continue
+    }
+    setters.push(`${key} = ?`)
+    values.push(value)
+  }
+
   return {
-    sql: `UPDATE ${table} SET ${setters} WHERE id = ?`,
+    sql: `UPDATE ${table} SET ${setters.join(', ')} WHERE id = ?`,
     values
   }
 }
@@ -63,7 +90,7 @@ export function createCrudRouter({
         [...params, pageSize, offset]
       )
 
-      const data = afterList ? afterList(rows) : rows
+      const data = afterList ? await afterList(rows, req) : rows
       res.json({ code: 0, message: 'success', data: { list: data, total: countRows[0].total, page, pageSize } })
     } catch (error) {
       next(error)
@@ -73,7 +100,7 @@ export function createCrudRouter({
   router.get('/:id', async (req, res, next) => {
     try {
       const rows = await req.app.locals.db.query(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`, [req.params.id])
-      const item = afterItem ? afterItem(rows[0] || null) : (rows[0] || null)
+      const item = afterItem ? await afterItem(rows[0] || null, req) : (rows[0] || null)
       res.json({ code: 0, message: 'success', data: item })
     } catch (error) {
       next(error)

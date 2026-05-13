@@ -6,6 +6,7 @@ const navItems = [
   { to: '/stations', label: '网点管理' },
   { to: '/equipments', label: '设备管理' },
   { to: '/orders', label: '订单管理' },
+  { to: '/transactions', label: '交易流水' },
   { to: '/coupons', label: '优惠营销' },
   { to: '/operations', label: '运维调度' }
 ]

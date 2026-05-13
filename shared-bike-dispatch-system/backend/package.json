@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "db:setup": "node src/tools/setup-db.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

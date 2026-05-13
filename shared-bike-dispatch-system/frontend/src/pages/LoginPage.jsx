@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import http from '../api/http'
 
 export default function LoginPage() {
@@ -46,6 +46,9 @@ export default function LoginPage() {
           </label>
           <button className="primary-btn full" type="submit">登录</button>
           {message ? <p className="form-message">{message}</p> : null}
+          <p style={{ marginTop: '12px' }}>
+            还没有账号？ <Link to="/register">注册一个</Link>
+          </p>
         </form>
       </section>
     </div>
