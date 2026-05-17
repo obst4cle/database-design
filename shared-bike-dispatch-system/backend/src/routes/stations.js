@@ -1,23 +1,26 @@
 import { createCrudRouter } from '../utils/crud.js'
 
 function buildLocationPayload(payload) {
-  if (payload.location) return payload
-  const longitude = Number(payload.longitude)
-  const latitude = Number(payload.latitude)
-  if (Number.isFinite(longitude) && Number.isFinite(latitude)) {
+  const { longitude, latitude, ...rest } = payload
+  if (rest.location) return rest
+
+  const lng = Number(longitude)
+  const lat = Number(latitude)
+  if (Number.isFinite(lng) && Number.isFinite(lat)) {
     return {
-      ...payload,
-      location: { __rawSql: `ST_GeomFromText('POINT(${longitude} ${latitude})')` }
+      ...rest,
+      location: { __rawSql: `ST_GeomFromText('POINT(${lng} ${lat})')` }
     }
   }
-  return payload
+
+  return rest
 }
 
 export default createCrudRouter({
   table: 'stations',
   listOrderBy: 'id DESC',
-  createFields: ['station_code', 'station_name', 'address', 'longitude', 'latitude', 'location', 'max_capacity', 'available_slots', 'station_status'],
-  updateFields: ['station_code', 'station_name', 'address', 'longitude', 'latitude', 'location', 'max_capacity', 'available_slots', 'station_status'],
+  createFields: ['station_code', 'station_name', 'address', 'longitude', 'latitude', 'max_capacity', 'available_slots', 'station_status'],
+  updateFields: ['station_code', 'station_name', 'address', 'longitude', 'latitude', 'max_capacity', 'available_slots', 'station_status'],
   beforeCreate: async (payload) => buildLocationPayload(payload),
   beforeUpdate: async (payload) => buildLocationPayload(payload),
   afterList: async (rows, req) => {

@@ -5,32 +5,32 @@ import CrudManagerPage from '../components/CrudManagerPage'
 const couponFields = [
   { name: 'user_id', label: '用户 ID', type: 'number', required: true },
   { name: 'order_id', label: '订单 ID', type: 'number' },
-  { name: 'coupon_code', label: '优惠券编号', required: true },
-  { name: 'coupon_name', label: '优惠券名称', required: true },
-  { name: 'coupon_type', label: '优惠券类型', required: true },
-  { name: 'face_value', label: '面值', type: 'number', step: 'any', required: true },
-  { name: 'min_spend', label: '使用门槛', type: 'number', step: 'any' },
-  { name: 'expire_at', label: '过期时间', type: 'datetime-local', required: true },
+  { name: 'coupon_code', label: '券编号', required: true },
+  { name: 'coupon_name', label: '券名称', required: true },
+  { name: 'coupon_type', label: '类型', required: true },
+  { name: 'face_value', label: '面额', type: 'number', step: 'any', required: true },
+  { name: 'min_spend', label: '门槛', type: 'number', step: 'any' },
+  { name: 'expire_at', label: '到期时间', type: 'datetime-local', required: true },
   { name: 'used_at', label: '核销时间', type: 'datetime-local' },
   {
     name: 'is_used',
-    label: '是否已使用',
+    label: '是否使用',
     type: 'select',
     options: [
-      { value: 0, label: '否' },
-      { value: 1, label: '是' }
+      { value: 0, label: '未使用' },
+      { value: 1, label: '已使用' }
     ]
   },
   { name: 'source', label: '来源', required: true }
 ]
 
 const couponColumns = [
-  { key: 'coupon_code', label: '优惠券编号' },
-  { key: 'coupon_name', label: '优惠券名称' },
+  { key: 'coupon_code', label: '券编号' },
+  { key: 'coupon_name', label: '券名称' },
   { key: 'coupon_type', label: '类型' },
-  { key: 'face_value', label: '面值' },
+  { key: 'face_value', label: '面额' },
   { key: 'is_used', label: '状态' },
-  { key: 'expire_at', label: '过期时间' }
+  { key: 'expire_at', label: '到期时间' }
 ]
 
 function toNumber(value) {
@@ -59,10 +59,9 @@ export default function CouponsPage() {
 
   return (
     <AuthGuard>
-      <AppShell title="优惠营销" subtitle="管理优惠券发放、核销和过期状态。">
+      <AppShell title="优惠券">
         <CrudManagerPage
           title="优惠券列表"
-          description="支持新增、编辑、核销和失效处理。"
           apiPath="/coupons"
           columns={couponColumns}
           fields={couponFields}
@@ -105,6 +104,7 @@ export default function CouponsPage() {
           })}
           formatValue={(value, row, key) => {
             if (key === 'is_used') return Number(value) ? '已核销' : '未核销'
+            if (key === 'face_value') return `¥${Number(value || 0).toFixed(2)}`
             if (value === null || value === undefined || value === '') return '--'
             return String(value)
           }}

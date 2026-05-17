@@ -27,39 +27,15 @@ export default function TransactionsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    const userIdParam = searchParams.get('userId')
-    if (userIdParam) {
-      setUserId(userIdParam)
-      setLoading(true)
-      setError('')
-      http.get(`/transactions/user/${userIdParam}`)
-        .then((response) => {
-          const rows = response.data || []
-          setTransactions(rows)
-          setSummary({
-            totalCount: rows.length,
-            successCount: rows.filter((item) => item.tx_status === 'success').length,
-            totalAmount: rows.reduce((sum, item) => sum + Number(item.amount || 0), 0)
-          })
-        })
-        .catch((requestError) => setError(requestError.message))
-        .finally(() => setLoading(false))
-      return
-    }
-
-    loadTransactions()
-  }, [searchParams])
-
   async function loadTransactions() {
     setLoading(true)
     setError('')
     try {
       const response = await http.get('/transactions', { params: { page: 1, pageSize: 40 } })
-      const rows = response.data.list || []
+      const rows = response.data?.list || []
       setTransactions(rows)
       setSummary({
-        totalCount: response.data.total || rows.length,
+        totalCount: response.data?.total || rows.length,
         successCount: rows.filter((item) => item.tx_status === 'success').length,
         totalAmount: rows.reduce((sum, item) => sum + Number(item.amount || 0), 0)
       })
@@ -71,8 +47,29 @@ export default function TransactionsPage() {
   }
 
   useEffect(() => {
-    loadTransactions()
-  }, [])
+    const userIdParam = searchParams.get('userId')
+    if (!userIdParam) {
+      setUserId('')
+      loadTransactions()
+      return
+    }
+
+    setUserId(userIdParam)
+    setLoading(true)
+    setError('')
+    http.get(`/transactions/user/${userIdParam}`)
+      .then((response) => {
+        const rows = response.data || []
+        setTransactions(rows)
+        setSummary({
+          totalCount: rows.length,
+          successCount: rows.filter((item) => item.tx_status === 'success').length,
+          totalAmount: rows.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+        })
+      })
+      .catch((requestError) => setError(requestError.message))
+      .finally(() => setLoading(false))
+  }, [searchParams])
 
   const filteredRows = useMemo(() => {
     const trimmedKeyword = keyword.trim().toLowerCase()
@@ -84,7 +81,7 @@ export default function TransactionsPage() {
     })
   }, [transactions, userId, keyword])
 
-  async function searchByUser(event) {
+  function searchByUser(event) {
     event.preventDefault()
     const trimmed = userId.trim()
     setSearchParams(trimmed ? { userId: trimmed } : {})
@@ -92,13 +89,13 @@ export default function TransactionsPage() {
 
   return (
     <AuthGuard>
-      <AppShell title="交易流水" subtitle="查看订单扣费、余额变化与流水结果。">
+      <AppShell title="流水">
         <div className="panel-grid transaction-layout">
           <div className="stat-grid transaction-stats">
-            <StatCard label="流水总数" value={summary.totalCount ?? '--'} />
-            <StatCard label="成功流水" value={summary.successCount ?? '--'} />
-            <StatCard label="累计金额" value={formatMoney(summary.totalAmount ?? 0)} />
-            <StatCard label="当前筛选" value={filteredRows.length} />
+            <StatCard label="总数" value={summary.totalCount ?? '--'} />
+            <StatCard label="成功" value={summary.successCount ?? '--'} />
+            <StatCard label="金额" value={formatMoney(summary.totalAmount ?? 0)} />
+            <StatCard label="筛选后" value={filteredRows.length} />
           </div>
 
           <section className="card-panel transaction-toolbar">
@@ -108,30 +105,27 @@ export default function TransactionsPage() {
                 <input
                   value={userId}
                   onChange={(event) => setUserId(event.target.value)}
-                  placeholder="输入用户 ID 后回车筛选"
+                  placeholder="输入用户 ID"
                 />
               </label>
               <label>
-                关键字
+                关键词
                 <input
                   value={keyword}
                   onChange={(event) => setKeyword(event.target.value)}
-                  placeholder="流水号 / 类型 / 渠道 / 状态"
+                  placeholder="流水号、类型、渠道、状态"
                 />
               </label>
               <div className="transaction-actions">
-                <button className="primary-btn" type="submit">按用户筛选</button>
-                <button className="ghost-btn" type="button" onClick={loadTransactions}>刷新全部</button>
+                <button className="primary-btn" type="submit">筛选</button>
+                <button className="ghost-btn" type="button" onClick={loadTransactions}>刷新</button>
               </div>
             </form>
           </section>
 
           <section className="page-card">
             <div className="page-head">
-              <div>
-                <h3>流水明细</h3>
-                <p>订单计费会在归还时自动写入这里，便于追踪余额变化。</p>
-              </div>
+              <h3>流水明细</h3>
             </div>
 
             {loading ? <div className="empty-state">加载中...</div> : null}
@@ -145,8 +139,8 @@ export default function TransactionsPage() {
                   <span>订单</span>
                   <span>类型</span>
                   <span>金额</span>
-                  <span>余额前</span>
-                  <span>余额后</span>
+                  <span>变更前</span>
+                  <span>变更后</span>
                   <span>状态</span>
                 </div>
                 {filteredRows.length === 0 ? (

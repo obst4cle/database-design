@@ -26,7 +26,6 @@ router.put('/:id/finish', async (req, res, next) => {
   }
 })
 
-// 自动生成调度任务：根据站点空位/车辆情况简单生成补位任务
 router.post('/auto', async (req, res, next) => {
   try {
     const desiredMoveCount = Math.max(Number(req.body.desiredMoveCount || 3), 1)
@@ -61,11 +60,11 @@ router.post('/auto', async (req, res, next) => {
       return { ...station, capacity, bikeCount, targetCount, surplus, deficit }
     })
 
-    const donors = enrichedStations.filter((station) => station.surplus > 0 && Number(station.lng) && Number(station.lat))
-    const receivers = enrichedStations.filter((station) => station.deficit > 0 && Number(station.lng) && Number(station.lat))
+    const donors = enrichedStations.filter((station) => station.surplus > 0)
+    const receivers = enrichedStations.filter((station) => station.deficit > 0)
 
     if (!donors.length || !receivers.length) {
-      return res.json({ code: 0, message: '暂无明显的供需失衡站点', data: null })
+      return res.json({ code: 0, message: '暂无明显失衡站点', data: null })
     }
 
     function distanceMeters(a, b) {
@@ -83,6 +82,7 @@ router.post('/auto', async (req, res, next) => {
     let bestPair = null
     for (const donor of donors) {
       for (const receiver of receivers) {
+        if (donor.id === receiver.id) continue
         const distance = distanceMeters(donor, receiver)
         const imbalance = donor.surplus + receiver.deficit
         const score = imbalance / (1 + distance / 1000)
@@ -97,9 +97,13 @@ router.post('/auto', async (req, res, next) => {
     }
 
     const moveCount = Math.max(1, Math.min(desiredMoveCount, bestPair.donor.surplus, bestPair.receiver.deficit))
-    const staffRows = await req.app.locals.db.query('SELECT * FROM staffs WHERE staff_status = ? ORDER BY updated_at ASC LIMIT 1', ['active'])
-    if (!staffRows[0]) return res.json({ code: 0, message: '暂无可用调度人员', data: null })
-    const staff = staffRows[0]
+    const staffRows = await req.app.locals.db.query(
+      'SELECT * FROM staffs WHERE staff_status = ? ORDER BY updated_at ASC LIMIT 1',
+      ['active']
+    )
+    if (!staffRows[0]) {
+      return res.json({ code: 0, message: '暂无可用调度人员', data: null })
+    }
 
     const equipmentRows = await req.app.locals.db.query(
       `SELECT id FROM equipments WHERE station_id = ? AND equipment_status = 'idle' ORDER BY updated_at ASC LIMIT ?`,
@@ -110,32 +114,33 @@ router.post('/auto', async (req, res, next) => {
       return res.json({ code: 0, message: '供给站暂无可调度车辆', data: null })
     }
 
-    const taskNo = 'DT' + Date.now() + Math.floor(Math.random() * 900 + 100)
+    const taskNo = `DT${Date.now()}${Math.floor(Math.random() * 900 + 100)}`
     const plannedAt = new Date().toISOString().slice(0, 19).replace('T', ' ')
+    const remark = `距离约 ${Math.round(bestPair.distance)} 米，搬运 ${equipmentIds.length} 辆车`
     const result = await req.app.locals.db.query(
       `INSERT INTO dispatch_tasks (task_no, staff_id, from_station_id, to_station_id, equipment_ids, planned_at, task_type, task_status, remark)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         taskNo,
-        staff.id,
+        staffRows[0].id,
         bestPair.donor.id,
         bestPair.receiver.id,
         JSON.stringify(equipmentIds),
         plannedAt,
         'relocation',
         'pending',
-        `距离约 ${Math.round(bestPair.distance)} 米，搬运 ${equipmentIds.length} 辆`
+        remark
       ]
     )
 
     res.json({
       code: 0,
-      message: '按距离优化生成调度任务',
+      message: '已生成调度任务',
       data: {
         id: result.insertId,
         task_no: taskNo,
-        from: bestPair.donor.id,
-        to: bestPair.receiver.id,
+        from_station_id: bestPair.donor.id,
+        to_station_id: bestPair.receiver.id,
         distance: Math.round(bestPair.distance),
         equipment_ids: equipmentIds
       }

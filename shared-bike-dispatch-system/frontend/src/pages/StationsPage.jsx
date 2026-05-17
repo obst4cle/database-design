@@ -4,20 +4,20 @@ import CrudManagerPage from '../components/CrudManagerPage'
 const stationFields = [
   { name: 'station_code', label: '站点编号', required: true },
   { name: 'station_name', label: '站点名称', required: true },
-  { name: 'address', label: '详细地址', type: 'textarea', rows: 2 },
+  { name: 'address', label: '地址', type: 'textarea', rows: 2 },
   { name: 'longitude', label: '经度', type: 'number', step: 'any', required: true },
   { name: 'latitude', label: '纬度', type: 'number', step: 'any', required: true },
-  { name: 'max_capacity', label: '最大容量', type: 'number', required: true },
-  { name: 'available_slots', label: '可用空位', type: 'number', required: true },
+  { name: 'max_capacity', label: '容量', type: 'number', required: true },
+  { name: 'available_slots', label: '空位', type: 'number', required: true },
   {
     name: 'station_status',
-    label: '站点状态',
+    label: '状态',
     type: 'select',
     required: true,
     options: [
-      { value: 'normal', label: 'normal' },
-      { value: 'busy', label: 'busy' },
-      { value: 'closed', label: 'closed' }
+      { value: 'normal', label: '正常' },
+      { value: 'busy', label: '繁忙' },
+      { value: 'closed', label: '关闭' }
     ]
   }
 ]
@@ -34,10 +34,9 @@ const stationColumns = [
 export default function StationsPage() {
   return (
     <AuthGuard>
-      <AppShell title="网点管理" subtitle="查看并维护站点经纬度、容量和空闲位。">
+      <AppShell title="站点">
         <CrudManagerPage
-          title="网点列表"
-          description="支持新增、编辑和删除站点，提交时自动把经纬度转换为位置字段。"
+          title="站点列表"
           apiPath="/stations"
           columns={stationColumns}
           fields={stationFields}
@@ -69,6 +68,9 @@ export default function StationsPage() {
           formatValue={(value, row, key) => {
             if (value === null || value === undefined || value === '') return '--'
             if (key === 'longitude' || key === 'latitude') return Number(value).toFixed(6)
+            if (key === 'station_status') {
+              return { normal: '正常', busy: '繁忙', closed: '关闭' }[value] || String(value)
+            }
             return String(value)
           }}
         />

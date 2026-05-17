@@ -26,7 +26,6 @@ function formatInputValue(field, value) {
 
 export default function CrudManagerPage({
   title,
-  description,
   apiPath,
   columns,
   fields,
@@ -52,7 +51,7 @@ export default function CrudManagerPage({
     setError('')
     try {
       const response = await http.get(apiPath, { params: { page: 1, pageSize: 20 } })
-      setRows(response.data.list || [])
+      setRows(response.data?.list || [])
     } catch (requestError) {
       setError(requestError.message)
     } finally {
@@ -109,7 +108,7 @@ export default function CrudManagerPage({
   }
 
   async function handleDelete(record) {
-    if (!window.confirm(`确认删除“${record.id}”这条记录吗？`)) return
+    if (!window.confirm(`确认删除记录 #${record.id} 吗？`)) return
     setError('')
     try {
       await http.delete(`${apiPath}/${record.id}`)
@@ -163,10 +162,7 @@ export default function CrudManagerPage({
   return (
     <div className="page-card crud-card">
       <div className="page-head crud-head">
-        <div>
-          <h3>{title}</h3>
-          <p>{description}</p>
-        </div>
+        <h3>{title}</h3>
         <button className="primary-btn" type="button" onClick={openCreateModal}>{createLabel}</button>
       </div>
 
@@ -208,10 +204,7 @@ export default function CrudManagerPage({
         <div className="modal-backdrop" role="presentation" onClick={closeModal}>
           <div className="modal-card" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
             <div className="modal-head">
-              <div>
-                <h4>{editingRow ? '编辑记录' : '新增记录'}</h4>
-                <p>请输入表单内容后保存。</p>
-              </div>
+              <h4>{editingRow ? '编辑记录' : '新增记录'}</h4>
               <button className="ghost-btn" type="button" onClick={closeModal}>关闭</button>
             </div>
 

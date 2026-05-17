@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import http from '../api/http'
 
-export default function ResourcePage({ title, description, apiPath, columns }) {
+export default function ResourcePage({ title, apiPath, columns }) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -15,10 +15,10 @@ export default function ResourcePage({ title, description, apiPath, columns }) {
       try {
         const response = await http.get(apiPath, { params: { page: 1, pageSize: 8 } })
         if (!ignore) {
-          setRows(response.data.list || [])
+          setRows(response.data?.list || [])
         }
-      } catch (error) {
-        if (!ignore) setError(error.message)
+      } catch (requestError) {
+        if (!ignore) setError(requestError.message)
       } finally {
         if (!ignore) setLoading(false)
       }
@@ -33,10 +33,7 @@ export default function ResourcePage({ title, description, apiPath, columns }) {
   return (
     <div className="page-card">
       <div className="page-head">
-        <div>
-          <h3>{title}</h3>
-          <p>{description}</p>
-        </div>
+        <h3>{title}</h3>
       </div>
 
       {loading ? <div className="empty-state">加载中...</div> : null}
@@ -45,7 +42,7 @@ export default function ResourcePage({ title, description, apiPath, columns }) {
       {!loading && !error ? (
         <div className="table-shell">
           <div className="table-header" style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}>
-            {columns.map((column) => <span key={column}>{column}</span>)}
+            {columns.map((column) => <span key={column.key || column}>{column.label || column}</span>)}
           </div>
           {rows.length === 0 ? (
             <div className="table-row table-empty"><span>暂无数据</span></div>
@@ -56,9 +53,10 @@ export default function ResourcePage({ title, description, apiPath, columns }) {
                 key={row.id}
                 style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}
               >
-                {columns.map((column) => (
-                  <span key={column}>{String(row[column] ?? row[column.toLowerCase()] ?? '--')}</span>
-                ))}
+                {columns.map((column) => {
+                  const key = column.key || column
+                  return <span key={key}>{String(row[key] ?? row[String(key).toLowerCase()] ?? '--')}</span>
+                })}
               </div>
             ))
           )}

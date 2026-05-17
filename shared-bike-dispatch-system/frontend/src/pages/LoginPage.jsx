@@ -22,9 +22,7 @@ export default function LoginPage() {
   return (
     <div className="auth-page">
       <section className="auth-card">
-        <span className="eyebrow">Shared Bike Dispatch</span>
-        <h1>共享单车调度管理系统</h1>
-        <p>登录后可查看看板、订单、网点、设备和调度任务。</p>
+        <h1>共享单车调度系统</h1>
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <label>
@@ -46,8 +44,8 @@ export default function LoginPage() {
           </label>
           <button className="primary-btn full" type="submit">登录</button>
           {message ? <p className="form-message">{message}</p> : null}
-          <p style={{ marginTop: '12px' }}>
-            还没有账号？ <Link to="/register">注册一个</Link>
+          <p className="auth-switch">
+            没有账号？ <Link to="/register">去注册</Link>
           </p>
         </form>
       </section>

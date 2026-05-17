@@ -7,8 +7,8 @@ const orderFields = [
   { name: 'order_no', label: '订单编号', required: true },
   { name: 'user_id', label: '用户 ID', type: 'number', required: true },
   { name: 'equipment_id', label: '设备 ID', type: 'number', required: true },
-  { name: 'start_station_id', label: '起始站点 ID', type: 'number', required: true },
-  { name: 'end_station_id', label: '结束站点 ID', type: 'number' },
+  { name: 'start_station_id', label: '起点站 ID', type: 'number', required: true },
+  { name: 'end_station_id', label: '终点站 ID', type: 'number' },
   { name: 'coupon_id', label: '优惠券 ID', type: 'number' },
   { name: 'start_time', label: '开始时间', type: 'datetime-local', required: true },
   { name: 'end_time', label: '结束时间', type: 'datetime-local' },
@@ -16,14 +16,14 @@ const orderFields = [
   { name: 'actual_amount', label: '实付金额', type: 'number', step: 'any', required: true },
   {
     name: 'order_status',
-    label: '订单状态',
+    label: '状态',
     type: 'select',
     required: true,
     options: [
-      { value: 'pending', label: 'pending' },
-      { value: 'active', label: 'active' },
-      { value: 'completed', label: 'completed' },
-      { value: 'cancelled', label: 'cancelled' }
+      { value: 'pending', label: '待开始' },
+      { value: 'active', label: '进行中' },
+      { value: 'completed', label: '已完成' },
+      { value: 'cancelled', label: '已取消' }
     ]
   },
   { name: 'remark', label: '备注', type: 'textarea', rows: 3 }
@@ -33,7 +33,7 @@ const orderColumns = [
   { key: 'order_no', label: '订单编号' },
   { key: 'user_id', label: '用户 ID' },
   { key: 'equipment_id', label: '设备 ID' },
-  { key: 'start_station_id', label: '起始站点' },
+  { key: 'start_station_id', label: '起点站' },
   { key: 'actual_amount', label: '实付金额' },
   { key: 'order_status', label: '状态' }
 ]
@@ -49,10 +49,19 @@ function toDateTimeValue(value) {
   return String(value).replace('T', ' ').slice(0, 19)
 }
 
+function formatStatus(value) {
+  return {
+    pending: '待开始',
+    active: '进行中',
+    completed: '已完成',
+    cancelled: '已取消'
+  }[value] || String(value)
+}
+
 export default function OrdersPage() {
   const navigate = useNavigate()
 
-  async function goToTransactions(record) {
+  function goToTransactions(record) {
     navigate(`/transactions?userId=${record.user_id}`)
   }
 
@@ -71,10 +80,9 @@ export default function OrdersPage() {
 
   return (
     <AuthGuard>
-      <AppShell title="订单管理" subtitle="查看租借、归还和计费结果。">
+      <AppShell title="订单">
         <CrudManagerPage
           title="订单列表"
-          description="支持新增、编辑、删除，并可直接执行归还、取消和查看流水。"
           apiPath="/orders"
           columns={orderColumns}
           fields={orderFields}
@@ -122,12 +130,13 @@ export default function OrdersPage() {
           formatValue={(value, row, key) => {
             if (value === null || value === undefined || value === '') return '--'
             if (key === 'expected_amount' || key === 'actual_amount') return `¥${Number(value).toFixed(2)}`
+            if (key === 'order_status') return formatStatus(value)
             return String(value)
           }}
           rowActions={(record, { reload }) => (
             <>
               <button className="inline-btn primary" type="button" onClick={() => forceReturn(record, reload)}>
-                归还计费
+                还车计费
               </button>
               <button className="inline-btn warn" type="button" onClick={() => cancelOrder(record, reload)}>
                 取消
