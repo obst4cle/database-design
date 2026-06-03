@@ -21,6 +21,7 @@
 html, body, #root {
   min-height: 100%;
   margin: 0;
+  overflow-x: hidden;
 }
 
 body {
@@ -51,7 +52,7 @@ textarea {
 .app-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 240px minmax(0, 1fr);
 }
 
 .sidebar {
@@ -122,6 +123,8 @@ textarea {
   display: flex;
   flex-direction: column;
   padding: 28px;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .topbar,
@@ -770,6 +773,35 @@ textarea {
 .badge.muted { background: rgba(15, 23, 42, 0.04); color: var(--muted) }
 
 .transaction-grid span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+
+.geo-tip {
+  position: relative;
+  cursor: default;
+  border-bottom: 1px dashed #9ca3af;
+}
+
+.geo-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 100;
+}
+
+.geo-tip:hover::after {
+  opacity: 1;
+  transform: translateY(0);
+}
 
 .transaction-group { margin-top: 12px }
 .transaction-group-head { padding: 8px 6px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center }

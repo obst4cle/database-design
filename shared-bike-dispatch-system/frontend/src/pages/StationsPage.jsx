@@ -25,8 +25,8 @@ const stationFields = [
 const stationColumns = [
   { key: 'station_name', label: '站点名称' },
   { key: 'station_code', label: '站点编号' },
-  { key: 'longitude', label: '经度' },
-  { key: 'latitude', label: '纬度' },
+  { key: 'address', label: '地址' },
+  { key: 'max_capacity', label: '容量' },
   { key: 'available_slots', label: '空位' },
   { key: 'station_status', label: '状态' }
 ]
@@ -67,7 +67,14 @@ export default function StationsPage() {
           })}
           formatValue={(value, row, key) => {
             if (value === null || value === undefined || value === '') return '--'
-            if (key === 'longitude' || key === 'latitude') return Number(value).toFixed(6)
+            if (key === 'address') {
+              const tip = `经度: ${Number(row.longitude).toFixed(6)}  纬度: ${Number(row.latitude).toFixed(6)}`
+              return (
+                <span className="geo-tip" data-tip={tip}>
+                  {String(value)}
+                </span>
+              )
+            }
             if (key === 'station_status') {
               return { normal: '正常', busy: '繁忙', closed: '关闭' }[value] || String(value)
             }
