@@ -136,13 +136,14 @@ export default function CrudManagerPage({
   function renderField(field) {
     const value = formValues[field.name] ?? ''
     if (field.type === 'select') {
+      const hasEmptyOption = field.options?.some((option) => option.value === '')
       return (
         <select
           value={value}
           onChange={(event) => updateField(field.name, event.target.value)}
           required={field.required}
         >
-          <option value="">请选择</option>
+          {hasEmptyOption ? null : <option value="">{field.placeholder || '请选择'}</option>}
           {field.options?.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}

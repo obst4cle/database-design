@@ -8,6 +8,7 @@ import EquipmentsPage from './pages/EquipmentsPage'
 import OrdersPage from './pages/OrdersPage'
 import TransactionsPage from './pages/TransactionsPage'
 import CouponsPage from './pages/CouponsPage'
+import StaffsPage from './pages/StaffsPage'
 import OperationsPage from './pages/OperationsPage'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -24,6 +25,7 @@ export default function App() {
       <Route path="/orders" element={<OrdersPage />} />
       <Route path="/transactions" element={<TransactionsPage />} />
       <Route path="/coupons" element={<CouponsPage />} />
+      <Route path="/staffs" element={<StaffsPage />} />
       <Route path="/operations" element={<OperationsPage />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

@@ -27,7 +27,7 @@ export default function RegisterPage() {
           <p>加入我们的管理体系，体验实时车辆分布总览与快速智能调度推荐服务。</p>
         </div>
         <div className="auth-form-side">
-          <h1 style={{ fontSize: '28px' }}>🚀 注册控制台账号</h1>
+          <h1 style={{ fontSize: '28px' }}>注册控制台账号</h1>
           
           <form className="auth-form" onSubmit={handleSubmit} style={{ marginTop: '12px' }}>
             <label>

@@ -8,7 +8,6 @@ const stationFields = [
   { name: 'longitude', label: '经度', type: 'number', step: 'any', required: true },
   { name: 'latitude', label: '纬度', type: 'number', step: 'any', required: true },
   { name: 'max_capacity', label: '容量', type: 'number', required: true },
-  { name: 'available_slots', label: '空位', type: 'number', required: true },
   {
     name: 'station_status',
     label: '状态',
@@ -40,7 +39,7 @@ export default function StationsPage() {
           apiPath="/stations"
           columns={stationColumns}
           fields={stationFields}
-          defaultValues={{ station_status: 'normal', max_capacity: 0, available_slots: 0 }}
+          defaultValues={{ station_status: 'normal', max_capacity: 0 }}
           mapRecordToForm={(record) => ({
             station_code: record.station_code ?? '',
             station_name: record.station_name ?? '',
@@ -48,24 +47,26 @@ export default function StationsPage() {
             longitude: record.longitude ?? '',
             latitude: record.latitude ?? '',
             max_capacity: record.max_capacity ?? 0,
-            available_slots: record.available_slots ?? 0,
             station_status: record.station_status ?? 'normal'
           })}
           buildCreatePayload={(formValues) => ({
             ...formValues,
             longitude: Number(formValues.longitude),
             latitude: Number(formValues.latitude),
-            max_capacity: Number(formValues.max_capacity),
-            available_slots: Number(formValues.available_slots)
+            max_capacity: Number(formValues.max_capacity)
           })}
           buildUpdatePayload={(formValues) => ({
             ...formValues,
             longitude: Number(formValues.longitude),
             latitude: Number(formValues.latitude),
-            max_capacity: Number(formValues.max_capacity),
-            available_slots: Number(formValues.available_slots)
+            max_capacity: Number(formValues.max_capacity)
           })}
           formatValue={(value, row, key) => {
+            if (key === 'available_slots') {
+              const capacity = Number(row.max_capacity || 0)
+              const slots = Math.max(0, capacity - Number(row.parked_count || 0))
+              return `${slots} / ${capacity}`
+            }
             if (value === null || value === undefined || value === '') return '--'
             if (key === 'address') {
               const tip = `经度: ${Number(row.longitude).toFixed(6)}  纬度: ${Number(row.latitude).toFixed(6)}`

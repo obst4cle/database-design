@@ -7,9 +7,13 @@ export default function OperationsPage() {
   const [dispatchTasks, setDispatchTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [demoMessage, setDemoMessage] = useState('')
+  const [suggestions, setSuggestions] = useState([])
+  const [suggestMessage, setSuggestMessage] = useState('')
+  const [adoptingKey, setAdoptingKey] = useState('')
+  const [lastAnalyzedAt, setLastAnalyzedAt] = useState('')
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const [mRes, dRes] = await Promise.all([
         http.get('/maintenance-logs', { params: { page: 1, pageSize: 15 } }),
@@ -20,13 +24,62 @@ export default function OperationsPage() {
     } catch (e) {
       console.error(e)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [])
 
+  const loadSuggestions = useCallback(async () => {
+    try {
+      const res = await http.get('/dispatch-tasks/suggestions', {
+        params: { desiredMoveCount: 3, balanceRatio: 0.5 }
+      })
+      const list = res.data?.suggestions || []
+      setSuggestions(list)
+      setLastAnalyzedAt(new Date().toLocaleTimeString('zh-CN', { hour12: false }))
+      if (list.length === 0) {
+        setSuggestMessage(`已分析 ${res.data?.stationTotal ?? 0} 个站点：当前各站车辆较均衡（盈余站 ${res.data?.donorTotal ?? 0} 个），暂无调度建议。`)
+      } else {
+        setSuggestMessage('')
+      }
+    } catch (error) {
+      setSuggestMessage(error.message)
+    }
+  }, [])
+
+  // 首次加载 + 每 15 秒自动刷新运维队列与调度建议（动态分析，无需手动触发）
   useEffect(() => {
     loadData()
-  }, [loadData])
+    loadSuggestions()
+    const timer = setInterval(() => {
+      loadData(true)
+      loadSuggestions()
+    }, 15000)
+    return () => clearInterval(timer)
+  }, [loadData, loadSuggestions])
+
+  async function adoptSuggestion(suggestion) {
+    const key = `${suggestion.from_station_id}-${suggestion.to_station_id}`
+    setAdoptingKey(key)
+    setSuggestMessage('')
+    try {
+      const res = await http.post('/dispatch-tasks/auto', {
+        from_station_id: suggestion.from_station_id,
+        to_station_id: suggestion.to_station_id,
+        desiredMoveCount: suggestion.move_count,
+        balanceRatio: 0.5
+      })
+      if (res.data?.task_no) {
+        setSuggestMessage(`已采纳建议并生成工单 ${res.data.task_no}：从「${res.data.from_station_name}」调拨 ${res.data.equipment_ids?.length || 0} 辆车至「${res.data.to_station_name}」。`)
+      } else {
+        setSuggestMessage(res.message || '该建议已失效，已自动刷新')
+      }
+      await Promise.all([loadData(), loadSuggestions()])
+    } catch (error) {
+      setSuggestMessage(error.message)
+    } finally {
+      setAdoptingKey('')
+    }
+  }
 
   async function startMaintenance(record) {
     await http.put(`/maintenance-logs/${record.id}/start`)
@@ -84,9 +137,6 @@ export default function OperationsPage() {
               <button className="console-btn outline" onClick={createDemoMaintenance}>
                 <span>+</span> 触发故障模拟
               </button>
-              <button className="console-btn ghost" onClick={loadData}>
-                刷新队列
-              </button>
             </div>
           </header>
 
@@ -96,11 +146,62 @@ export default function OperationsPage() {
             </div>
           )}
 
+          {/* 智能调度建议 */}
+          <section className="suggest-panel">
+            <div className="suggest-head">
+              <div>
+                <h4>智能调度建议</h4>
+                <p>基于各站点实时车辆数与地理距离，按「失衡度 ÷ 距离」给出运力调拨建议。</p>
+              </div>
+              <div className="suggest-live">
+                <span className="live-dot" />
+                <span>每 15 秒自动分析{lastAnalyzedAt ? ` · 上次 ${lastAnalyzedAt}` : ''}</span>
+              </div>
+            </div>
+
+            {suggestMessage && (
+              <div className="suggest-note">{suggestMessage}</div>
+            )}
+
+            {suggestions.length > 0 && (
+              <div className="suggest-list">
+                {suggestions.map((s, index) => {
+                  const key = `${s.from_station_id}-${s.to_station_id}`
+                  return (
+                    <div key={key} className="suggest-card">
+                      <div className="suggest-rank">#{index + 1}</div>
+                      <div className="suggest-body">
+                        <div className="suggest-route">
+                          <span className="suggest-from">{s.from_station_name}</span>
+                          <span className="suggest-arrow">→ 调 {s.move_count} 辆 →</span>
+                          <span className="suggest-to">{s.to_station_name}</span>
+                        </div>
+                        <div className="suggest-meta">
+                          <span>供给站现有 {s.from_bike_count} 辆</span>
+                          <span>需求站现有 {s.to_bike_count} 辆（目标 {s.to_target_count}）</span>
+                          <span>距离约 {s.distance_meters} 米</span>
+                          <span>评分 {s.score}</span>
+                        </div>
+                      </div>
+                      <button
+                        className="console-btn solid"
+                        onClick={() => adoptSuggestion(s)}
+                        disabled={adoptingKey === key}
+                      >
+                        {adoptingKey === key ? '生成中...' : '采纳并生成工单'}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+
           <div className="console-split-view">
             {/* Maintenance Queue */}
             <div className="console-column">
               <div className="col-head">
-                <h4>⚠️ 异常干预队列</h4>
+                <h4>异常干预队列</h4>
                 <span className="col-count">{maintenanceLogs.length} 项</span>
               </div>
               <div className="console-list">
@@ -131,7 +232,7 @@ export default function OperationsPage() {
             {/* Dispatch Tasks */}
             <div className="console-column col-border">
               <div className="col-head">
-                <h4>🔄 运力调拨工单</h4>
+                <h4>运力调拨工单</h4>
                 <span className="col-count">{dispatchTasks.length} 项</span>
               </div>
               <div className="console-list">

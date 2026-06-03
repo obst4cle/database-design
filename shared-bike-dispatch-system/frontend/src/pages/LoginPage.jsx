@@ -28,7 +28,7 @@ export default function LoginPage() {
           <p>新一代城市出行管理后台。提供高效的车辆调度、订单实时追踪与智慧运维服务，打造绿色出行新体验。</p>
         </div>
         <div className="auth-form-side">
-          <h1>👏 欢迎登录</h1>
+          <h1>欢迎登录</h1>
           <p className="auth-subtitle">请使用您的管理员或总控账号登录</p>
 
           <form className="auth-form" onSubmit={handleSubmit}>
