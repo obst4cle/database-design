@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import http from '../api/http'
 
 function toReadableLabel(key) {
@@ -35,9 +36,17 @@ export default function CrudManagerPage({
   buildCreatePayload = (formValues) => formValues,
   buildUpdatePayload = (formValues) => formValues,
   formatValue,
-  rowActions
+  rowActions,
+  toolbarActions,
+  helperText,
+  allowCreate = true,
+  allowDelete = true
 }) {
   const tableColumns = useMemo(() => normalizeColumns(columns), [columns])
+  const tableGridTemplate = useMemo(
+    () => `${tableColumns.map(() => 'minmax(120px, 1fr)').join(' ')} minmax(220px, auto)`,
+    [tableColumns]
+  )
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -62,6 +71,12 @@ export default function CrudManagerPage({
   useEffect(() => {
     loadData()
   }, [apiPath])
+
+  useEffect(() => {
+    if (!modalOpen) return undefined
+    document.body.classList.add('modal-open')
+    return () => document.body.classList.remove('modal-open')
+  }, [modalOpen])
 
   function openCreateModal() {
     setEditingRow(null)
@@ -163,15 +178,21 @@ export default function CrudManagerPage({
     <div className="page-card crud-card">
       <div className="page-head crud-head">
         <h3>{title}</h3>
-        <button className="primary-btn" type="button" onClick={openCreateModal}>{createLabel}</button>
+        <div className="toolbar-actions">
+          {toolbarActions ? toolbarActions({ reload: loadData }) : null}
+          {allowCreate ? (
+            <button className="primary-btn" type="button" onClick={openCreateModal}>{createLabel}</button>
+          ) : null}
+        </div>
       </div>
 
+      {helperText ? <p className="status-text">{helperText}</p> : null}
       {loading ? <div className="empty-state">加载中...</div> : null}
       {error ? <div className="empty-state error">{error}</div> : null}
 
       {!loading && !error ? (
         <div className="table-shell">
-          <div className="table-header" style={{ gridTemplateColumns: `repeat(${tableColumns.length + 1}, minmax(0, 1fr))` }}>
+          <div className="table-header" style={{ gridTemplateColumns: tableGridTemplate }}>
             {tableColumns.map((column) => <span key={column.key}>{column.label}</span>)}
             <span>操作</span>
           </div>
@@ -182,7 +203,7 @@ export default function CrudManagerPage({
               <div
                 className="table-row"
                 key={row.id}
-                style={{ gridTemplateColumns: `repeat(${tableColumns.length + 1}, minmax(0, 1fr))` }}
+                style={{ gridTemplateColumns: tableGridTemplate }}
               >
                 {tableColumns.map((column) => (
                   <span key={column.key}>
@@ -192,7 +213,9 @@ export default function CrudManagerPage({
                 <span className="action-bar">
                   {rowActions ? rowActions(row, { edit: () => openEditModal(row), remove: () => handleDelete(row), reload: loadData }) : null}
                   <button className="inline-btn primary" type="button" onClick={() => openEditModal(row)}>编辑</button>
-                  <button className="inline-btn warn" type="button" onClick={() => handleDelete(row)}>删除</button>
+                  {allowDelete ? (
+                    <button className="inline-btn warn" type="button" onClick={() => handleDelete(row)}>删除</button>
+                  ) : null}
                 </span>
               </div>
             ))
@@ -200,7 +223,7 @@ export default function CrudManagerPage({
         </div>
       ) : null}
 
-      {modalOpen ? (
+      {modalOpen ? createPortal(
         <div className="modal-backdrop" role="presentation" onClick={closeModal}>
           <div className="modal-card" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
             <div className="modal-head">
@@ -210,7 +233,7 @@ export default function CrudManagerPage({
 
             <form className="crud-form" onSubmit={handleSubmit}>
               {fields.map((field) => (
-                <label key={field.name} className="crud-field">
+                <label key={field.name} className={`crud-field${field.type === 'textarea' ? ' wide' : ''}`}>
                   <span>{field.label || toReadableLabel(field.name)}</span>
                   {renderField(field)}
                 </label>
@@ -223,7 +246,8 @@ export default function CrudManagerPage({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       ) : null}
     </div>
   )

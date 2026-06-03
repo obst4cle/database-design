@@ -1,9 +1,9 @@
 import http from '../api/http'
+import { useEffect, useMemo, useState } from 'react'
 import { AppShell, AuthGuard } from '../components/Layout'
 import CrudManagerPage from '../components/CrudManagerPage'
 
-const couponFields = [
-  { name: 'user_id', label: '用户 ID', type: 'number', required: true },
+const baseCouponFields = [
   { name: 'order_id', label: '订单 ID', type: 'number' },
   { name: 'coupon_code', label: '券编号', required: true },
   { name: 'coupon_name', label: '券名称', required: true },
@@ -26,6 +26,7 @@ const couponFields = [
 
 const couponColumns = [
   { key: 'coupon_code', label: '券编号' },
+  { key: 'user_id', label: '用户名' },
   { key: 'coupon_name', label: '券名称' },
   { key: 'coupon_type', label: '类型' },
   { key: 'face_value', label: '面额' },
@@ -45,6 +46,46 @@ function toDateTimeValue(value) {
 }
 
 export default function CouponsPage() {
+  const [users, setUsers] = useState([])
+  const userOptions = useMemo(() => users.map((user) => ({
+    value: String(user.id),
+    label: `${user.username}${user.real_name ? `（${user.real_name}）` : ''}`
+  })), [users])
+  const userNameById = useMemo(() => {
+    return users.reduce((map, user) => {
+      map[String(user.id)] = user.username
+      return map
+    }, {})
+  }, [users])
+  const couponFields = useMemo(() => [
+    {
+      name: 'user_id',
+      label: '用户名',
+      type: 'select',
+      required: true,
+      options: userOptions
+    },
+    ...baseCouponFields
+  ], [userOptions])
+
+  useEffect(() => {
+    let ignore = false
+    async function loadUsers() {
+      try {
+        const response = await http.get('/users', { params: { page: 1, pageSize: 100 } })
+        const list = response.data?.list || response.data?.data?.list || []
+        if (!ignore) setUsers(list)
+      } catch (error) {
+        if (!ignore) setUsers([])
+      }
+    }
+
+    loadUsers()
+    return () => {
+      ignore = true
+    }
+  }, [])
+
   async function markAsUsed(record, reload) {
     if (!window.confirm(`确认核销优惠券 ${record.coupon_code} 吗？`)) return
     await http.put(`/coupons/${record.id}/use`, { order_id: record.order_id || null })
@@ -103,6 +144,7 @@ export default function CouponsPage() {
             source: formValues.source
           })}
           formatValue={(value, row, key) => {
+            if (key === 'user_id') return userNameById[String(value)] || `用户 #${value}`
             if (key === 'is_used') return Number(value) ? '已核销' : '未核销'
             if (key === 'face_value') return `¥${Number(value || 0).toFixed(2)}`
             if (value === null || value === undefined || value === '') return '--'

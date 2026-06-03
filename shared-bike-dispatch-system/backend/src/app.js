@@ -39,7 +39,8 @@ app.use('/api/dashboard', dashboardRouter)
 
 app.use((error, req, res, next) => {
   console.error(error)
-  res.status(500).json({ code: 50000, message: '服务器内部错误', data: null })
+  const status = error.statusCode || error.status || 500
+  res.status(status).json({ code: status * 100, message: error.message || '服务器内部错误', data: null })
 })
 
 export default app

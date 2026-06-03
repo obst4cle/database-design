@@ -10,7 +10,10 @@ const router = createCrudRouter({
 
 router.put('/:id/accept', async (req, res, next) => {
   try {
-    await req.app.locals.db.query(`UPDATE dispatch_tasks SET task_status = 'doing', started_at = NOW() WHERE id = ?`, [req.params.id])
+    await req.app.locals.db.query(
+      `UPDATE dispatch_tasks SET task_status = 'doing', started_at = COALESCE(started_at, NOW()) WHERE id = ? AND task_status <> 'done'`,
+      [req.params.id]
+    )
     res.json({ code: 0, message: '任务已接单', data: { id: Number(req.params.id) } })
   } catch (error) {
     next(error)
@@ -19,7 +22,33 @@ router.put('/:id/accept', async (req, res, next) => {
 
 router.put('/:id/finish', async (req, res, next) => {
   try {
-    await req.app.locals.db.query(`UPDATE dispatch_tasks SET task_status = 'done', finished_at = NOW() WHERE id = ?`, [req.params.id])
+    await req.app.locals.db.withTransaction(async (connection) => {
+      const [taskRows] = await connection.query('SELECT * FROM dispatch_tasks WHERE id = ? FOR UPDATE', [req.params.id])
+      const task = taskRows[0]
+      if (!task) throw new Error('调度任务不存在')
+      if (task.task_status === 'done') throw new Error('调度任务已完成')
+
+      const equipmentIds = Array.isArray(task.equipment_ids)
+        ? task.equipment_ids
+        : JSON.parse(task.equipment_ids || '[]')
+
+      if (equipmentIds.length > 0) {
+        await connection.query(
+          `UPDATE equipments SET station_id = ?, equipment_status = 'idle' WHERE id IN (?)`,
+          [task.to_station_id, equipmentIds]
+        )
+        await connection.query(
+          `UPDATE stations SET available_slots = LEAST(max_capacity, available_slots + ?) WHERE id = ?`,
+          [equipmentIds.length, task.from_station_id]
+        )
+        await connection.query(
+          `UPDATE stations SET available_slots = GREATEST(available_slots - ?, 0) WHERE id = ?`,
+          [equipmentIds.length, task.to_station_id]
+        )
+      }
+
+      await connection.query(`UPDATE dispatch_tasks SET task_status = 'done', finished_at = NOW() WHERE id = ?`, [req.params.id])
+    })
     res.json({ code: 0, message: '任务已完成', data: { id: Number(req.params.id) } })
   } catch (error) {
     next(error)

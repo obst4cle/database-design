@@ -1,3 +1,5 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import http from '../api/http'
 import { AppShell, AuthGuard } from '../components/Layout'
@@ -34,6 +36,7 @@ const orderColumns = [
   { key: 'user_id', label: '用户 ID' },
   { key: 'equipment_id', label: '设备 ID' },
   { key: 'start_station_id', label: '起点站' },
+  { key: 'end_station_id', label: '终点站' },
   { key: 'actual_amount', label: '实付金额' },
   { key: 'order_status', label: '状态' }
 ]
@@ -58,18 +61,142 @@ function formatStatus(value) {
   }[value] || String(value)
 }
 
+function extractList(response) {
+  return response?.data?.list || response?.data?.data?.list || []
+}
+
 export default function OrdersPage() {
   const navigate = useNavigate()
+  const [flowMessage, setFlowMessage] = useState('')
+  const [stations, setStations] = useState([])
+  const [stationKeyword, setStationKeyword] = useState('')
+  const [returnModalOpen, setReturnModalOpen] = useState(false)
+  const [returnRecord, setReturnRecord] = useState(null)
+  const [returnStationId, setReturnStationId] = useState('')
+  const [simulatedMinutes, setSimulatedMinutes] = useState('12')
+  const [returnError, setReturnError] = useState('')
+  const [returnSaving, setReturnSaving] = useState(false)
+  const returnReloadRef = useRef(null)
+
+  useEffect(() => {
+    let ignore = false
+    async function loadStations() {
+      try {
+        const response = await http.get('/stations', { params: { page: 1, pageSize: 100 } })
+        const list = extractList(response)
+        if (!ignore) setStations(list)
+      } catch (error) {
+        if (!ignore) {
+          setStations([])
+          setFlowMessage(error.message)
+        }
+      }
+    }
+
+    loadStations()
+    return () => {
+      ignore = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!returnModalOpen) return undefined
+    document.body.classList.add('modal-open')
+    return () => document.body.classList.remove('modal-open')
+  }, [returnModalOpen])
+
+  const filteredStations = useMemo(() => {
+    const keyword = stationKeyword.trim().toLowerCase()
+    if (!keyword) return stations
+
+    return stations.filter((station) => {
+      const stationName = String(station.station_name || '').toLowerCase()
+      const stationCode = String(station.station_code || '').toLowerCase()
+      const address = String(station.address || '').toLowerCase()
+      return stationName.includes(keyword) || stationCode.includes(keyword) || address.includes(keyword)
+    })
+  }, [stationKeyword, stations])
 
   function goToTransactions(record) {
     navigate(`/transactions?userId=${record.user_id}`)
   }
 
+  async function startDemoOrder(reload) {
+    setFlowMessage('')
+    try {
+      const [usersResponse, equipmentsResponse] = await Promise.all([
+        http.get('/users', { params: { page: 1, pageSize: 1 } }),
+        http.get('/equipments', { params: { page: 1, pageSize: 20 } })
+      ])
+      const user = extractList(usersResponse)[0]
+      const equipment = extractList(equipmentsResponse).find((item) => item.equipment_status === 'idle' && item.station_id)
+      if (!user || !equipment) {
+        setFlowMessage('缺少可演示用户或空闲车辆，请先检查用户和设备数据')
+        return
+      }
+
+      const response = await http.post('/orders/start', {
+        user_id: user.id,
+        equipment_id: equipment.id
+      })
+      setFlowMessage(`已创建演示订单 ${response.data?.order_no || ''}，车辆 ${equipment.equipment_code} 已借出`)
+      await reload()
+    } catch (error) {
+      setFlowMessage(error.message)
+    }
+  }
+
   async function forceReturn(record, reload) {
-    const endStationId = window.prompt('请输入归还站点 ID', record.end_station_id || '')
-    if (!endStationId) return
-    await http.put(`/orders/${record.id}/return`, { end_station_id: Number(endStationId) })
-    await reload()
+    setFlowMessage('')
+    setReturnError('')
+    setReturnRecord(record)
+    setReturnStationId(record.end_station_id ? String(record.end_station_id) : '')
+    setSimulatedMinutes('12')
+    setStationKeyword('')
+    returnReloadRef.current = reload
+    setReturnModalOpen(true)
+  }
+
+  function closeReturnModal() {
+    if (returnSaving) return
+    setReturnModalOpen(false)
+    setReturnRecord(null)
+    setReturnStationId('')
+    setSimulatedMinutes('12')
+    setStationKeyword('')
+    setReturnError('')
+    returnReloadRef.current = null
+  }
+
+  async function submitReturn() {
+    if (!returnRecord) return
+    if (!returnStationId) {
+      setReturnError('请选择归还站点')
+      return
+    }
+    const minutes = Number(simulatedMinutes)
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      setReturnError('请输入有效的模拟骑行时长')
+      return
+    }
+
+    setReturnSaving(true)
+    setReturnError('')
+    try {
+      const reloadAfterReturn = returnReloadRef.current
+      const response = await http.put(`/orders/${returnRecord.id}/return`, {
+        end_station_id: Number(returnStationId),
+        simulated_minutes: minutes
+      })
+      const result = response.data || {}
+      closeReturnModal()
+      await reloadAfterReturn?.()
+      setFlowMessage(`订单 ${returnRecord.order_no || ''} 已还到站点 #${result.end_station_id || returnStationId}，模拟 ${result.ride_minutes || minutes} 分钟，计费 ¥${Number(result.actual_amount || 0).toFixed(2)}，列表已自动刷新`)
+    } catch (error) {
+      setReturnError(error.message)
+    } finally {
+      setReturnSaving(false)
+    }
   }
 
   async function cancelOrder(record, reload) {
@@ -86,6 +213,8 @@ export default function OrdersPage() {
           apiPath="/orders"
           columns={orderColumns}
           fields={orderFields}
+          allowCreate={false}
+          allowDelete={false}
           defaultValues={{ order_status: 'pending', expected_amount: 0, actual_amount: 0 }}
           mapRecordToForm={(record) => ({
             order_no: record.order_no ?? '',
@@ -129,24 +258,106 @@ export default function OrdersPage() {
           })}
           formatValue={(value, row, key) => {
             if (value === null || value === undefined || value === '') return '--'
+            if (key === 'start_station_id' || key === 'end_station_id') {
+              const station = stations.find((item) => Number(item.id) === Number(value))
+              return station?.station_name || `站点 #${value}`
+            }
             if (key === 'expected_amount' || key === 'actual_amount') return `¥${Number(value).toFixed(2)}`
             if (key === 'order_status') return formatStatus(value)
             return String(value)
           }}
           rowActions={(record, { reload }) => (
             <>
-              <button className="inline-btn primary" type="button" onClick={() => forceReturn(record, reload)}>
-                还车计费
-              </button>
-              <button className="inline-btn warn" type="button" onClick={() => cancelOrder(record, reload)}>
-                取消
-              </button>
+              {record.order_status !== 'completed' && record.order_status !== 'cancelled' ? (
+                <button className="inline-btn primary" type="button" onClick={() => forceReturn(record, reload)}>
+                  还车计费
+                </button>
+              ) : null}
+              {record.order_status !== 'completed' && record.order_status !== 'cancelled' ? (
+                <button className="inline-btn warn" type="button" onClick={() => cancelOrder(record, reload)}>
+                  取消
+                </button>
+              ) : null}
               <button className="inline-btn ghost" type="button" onClick={() => goToTransactions(record)}>
                 流水
               </button>
             </>
           )}
+          toolbarActions={({ reload }) => (
+            <button className="primary-btn" type="button" onClick={() => startDemoOrder(reload)}>
+              演示下单：自动借出空闲车辆
+            </button>
+          )}
+          helperText={flowMessage}
         />
+
+        {returnModalOpen ? createPortal(
+          <div className="modal-backdrop" role="presentation" onClick={closeReturnModal}>
+            <div className="modal-card" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+              <div className="modal-head">
+                <h4>还车计费</h4>
+                <button className="ghost-btn" type="button" onClick={closeReturnModal}>关闭</button>
+              </div>
+
+              <div className="status-text">
+                为订单 {returnRecord?.order_no || '--'} 选择归还站点和模拟骑行时长，提交后会写入终点站、还车时间、金额和车辆状态。
+              </div>
+
+              <div className="crud-form">
+                <label className="crud-field">
+                  <span>搜索站点</span>
+                  <input
+                    type="search"
+                    value={stationKeyword}
+                    placeholder="输入站点名称、编号或地址筛选"
+                    onChange={(event) => setStationKeyword(event.target.value)}
+                  />
+                </label>
+
+                <label className="crud-field">
+                  <span>归还站点</span>
+                  <select value={returnStationId} onChange={(event) => setReturnStationId(event.target.value)}>
+                    <option value="">请选择站点</option>
+                    {filteredStations.map((station) => (
+                      <option key={station.id} value={String(station.id)}>
+                        {station.station_name || station.station_code || `站点 #${station.id}`}
+                        {station.station_code ? `（${station.station_code}）` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="crud-field">
+                  <span>模拟骑行时长（分钟）</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={simulatedMinutes}
+                    placeholder="例如 12、30、60"
+                    onChange={(event) => setSimulatedMinutes(event.target.value)}
+                  />
+                </label>
+
+                {stations.length > 0 && filteredStations.length === 0 ? (
+                  <div className="empty-state">没有匹配的站点，请调整搜索条件</div>
+                ) : null}
+
+                {returnError ? <div className="empty-state error">{returnError}</div> : null}
+
+                <div className="modal-actions">
+                  <button className="primary-btn" type="button" onClick={submitReturn} disabled={returnSaving}>
+                    {returnSaving ? '提交中...' : '确认还车'}
+                  </button>
+                  <button className="ghost-btn" type="button" onClick={closeReturnModal} disabled={returnSaving}>
+                    取消
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        ) : null}
       </AppShell>
     </AuthGuard>
   )
