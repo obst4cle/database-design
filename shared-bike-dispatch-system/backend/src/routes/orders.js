@@ -62,10 +62,6 @@ router.post('/start', async (req, res, next) => {
         `UPDATE equipments SET equipment_status = 'in_use', station_id = NULL WHERE id = ?`,
         [equipment.id]
       )
-      await connection.query(
-        `UPDATE stations SET available_slots = LEAST(max_capacity, available_slots + 1) WHERE id = ?`,
-        [equipment.station_id]
-      )
 
       createdOrder = {
         id: result.insertId,
@@ -164,15 +160,12 @@ router.put('/:id/return', async (req, res, next) => {
         [resolvedEndStationId, minutes, amount, amount, id]
       )
 
-      // 尝试恢复车辆状态并更新站点空位（最小化影响，忽略失败）
+      // 恢复车辆到归还站点并置为空闲（空位由车辆归属实时计算，无需手动维护）
       try {
         await connection.query('UPDATE equipments SET station_id = ?, equipment_status = ? WHERE id = ?', [resolvedEndStationId, 'idle', order.equipment_id])
-        if (resolvedEndStationId) {
-          await connection.query('UPDATE stations SET available_slots = GREATEST(available_slots - 1, 0) WHERE id = ?', [resolvedEndStationId])
-        }
       } catch (e) {
         // 不影响主要事务逻辑
-        console.warn('equipment/station update failed', e)
+        console.warn('equipment update failed', e)
       }
 
       completedOrder = {
