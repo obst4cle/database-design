@@ -32,7 +32,16 @@ export function AppShell({ title, children }) {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-badge">SB</div>
+          <div className="brand-badge">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="5.5" cy="17.5" r="3.5"/>
+              <circle cx="18.5" cy="17.5" r="3.5"/>
+              <path d="M15 6l-3 5h4l-3 5"/>
+              <circle cx="9" cy="6" r="1.5"/>
+              <path d="M9 6l-4 5.5"/>
+              <path d="M15 6l3 3"/>
+            </svg>
+          </div>
           <div>
             <h1>共享单车调度系统</h1>
           </div>

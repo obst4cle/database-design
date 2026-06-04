@@ -240,11 +240,10 @@ npm run preview
 
 ## 演示流程建议
 
-初始化脚本会创建可用于演示的账号和基础数据。推荐先执行：
+`sql/schema.sql` 会重建数据库，并创建可用于演示的账号和基础数据。推荐先在 MySQL 客户端中执行：
 
-```powershell
-cd backend
-npm run db:setup
+```sql
+SOURCE sql/schema.sql;
 ```
 
 默认演示账号：
