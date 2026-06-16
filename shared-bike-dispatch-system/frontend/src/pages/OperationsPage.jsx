@@ -1,5 +1,5 @@
 import http from '../api/http'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AppShell, AuthGuard } from '../components/Layout'
 
 export default function OperationsPage() {
@@ -11,6 +11,11 @@ export default function OperationsPage() {
   const [suggestMessage, setSuggestMessage] = useState('')
   const [adoptingKey, setAdoptingKey] = useState('')
   const [lastAnalyzedAt, setLastAnalyzedAt] = useState('')
+  const [equipments, setEquipments] = useState([])
+  const [staffs, setStaffs] = useState([])
+
+  const equipCodeById = useMemo(() => equipments.reduce((map, e) => { map[String(e.id)] = e.equipment_code; return map }, {}), [equipments])
+  const staffNameById = useMemo(() => staffs.reduce((map, s) => { map[String(s.id)] = s.staff_name; return map }, {}), [staffs])
 
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
@@ -46,7 +51,19 @@ export default function OperationsPage() {
     }
   }, [])
 
-  // 首次加载 + 每 15 秒自动刷新运维队列与调度建议（动态分析，无需手动触发）
+  useEffect(() => {
+    let ignore = false
+    Promise.all([
+      http.get('/equipments', { params: { page: 1, pageSize: 200 } }),
+      http.get('/staffs', { params: { page: 1, pageSize: 100 } })
+    ]).then(([eqRes, stRes]) => {
+      if (ignore) return
+      setEquipments(eqRes.data?.list || eqRes.data?.data?.list || [])
+      setStaffs(stRes.data?.list || stRes.data?.data?.list || [])
+    }).catch(() => {})
+    return () => { ignore = true }
+  }, [])
+
   useEffect(() => {
     loadData()
     loadSuggestions()
@@ -213,7 +230,7 @@ export default function OperationsPage() {
                     <div className="c-item-main">
                       <div className="c-item-title">
                         <span className={`c-dot ${log.repair_status}`}></span>
-                        <span>设备 #{log.equipment_id} {log.fault_type === 'vehicle_fault' ? '车辆故障' : '未知故障'}</span>
+                        <span>{equipCodeById[String(log.equipment_id)] || `设备 #${log.equipment_id}`} {log.fault_type === 'vehicle_fault' ? '车辆故障' : log.fault_type === 'brake_fault' ? '刹车故障' : log.fault_type === 'tire_flat' ? '轮胎漏气' : log.fault_type === 'lock_fault' ? '锁具故障' : log.fault_type === 'battery_low' ? '电量故障' : '未知故障'}</span>
                       </div>
                       <div className="c-item-meta">
                         <span>报修：{log.reported_at?.replace('T', ' ').slice(0, 16)}</span>
@@ -247,7 +264,7 @@ export default function OperationsPage() {
                         <span>工单 {task.task_no}</span>
                       </div>
                       <div className="c-item-meta">
-                        <span>下达至：人员 #{task.staff_id}</span>
+                        <span>下达至：{staffNameById[String(task.staff_id)] || `人员 #${task.staff_id}`}</span>
                         <span>时效：{task.planned_at?.replace('T', ' ').slice(0, 16)}</span>
                         <span>进度：{getStatusLabel(task.task_status)}</span>
                       </div>

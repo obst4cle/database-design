@@ -33,8 +33,8 @@ const orderFields = [
 
 const orderColumns = [
   { key: 'order_no', label: '订单编号' },
-  { key: 'user_id', label: '用户 ID' },
-  { key: 'equipment_id', label: '设备 ID' },
+  { key: 'user_id', label: '用户' },
+  { key: 'equipment_id', label: '设备' },
   { key: 'start_station_id', label: '起点站' },
   { key: 'end_station_id', label: '终点站' },
   { key: 'actual_amount', label: '实付金额' },
@@ -69,6 +69,8 @@ export default function OrdersPage() {
   const navigate = useNavigate()
   const [flowMessage, setFlowMessage] = useState('')
   const [stations, setStations] = useState([])
+  const [users, setUsers] = useState([])
+  const [equipments, setEquipments] = useState([])
   const [stationKeyword, setStationKeyword] = useState('')
   const [returnModalOpen, setReturnModalOpen] = useState(false)
   const [returnRecord, setReturnRecord] = useState(null)
@@ -78,22 +80,31 @@ export default function OrdersPage() {
   const [returnSaving, setReturnSaving] = useState(false)
   const returnReloadRef = useRef(null)
 
+  const userNameById = useMemo(() => users.reduce((map, u) => { map[String(u.id)] = u.username; return map }, {}), [users])
+  const equipCodeById = useMemo(() => equipments.reduce((map, e) => { map[String(e.id)] = e.equipment_code; return map }, {}), [equipments])
+
   useEffect(() => {
     let ignore = false
-    async function loadStations() {
+    async function loadRelated() {
       try {
-        const response = await http.get('/stations', { params: { page: 1, pageSize: 100 } })
-        const list = extractList(response)
-        if (!ignore) setStations(list)
+        const [stationRes, userRes, equipRes] = await Promise.all([
+          http.get('/stations', { params: { page: 1, pageSize: 100 } }),
+          http.get('/users', { params: { page: 1, pageSize: 100 } }),
+          http.get('/equipments', { params: { page: 1, pageSize: 200 } })
+        ])
+        if (!ignore) {
+          setStations(extractList(stationRes))
+          setUsers(extractList(userRes))
+          setEquipments(extractList(equipRes))
+        }
       } catch (error) {
         if (!ignore) {
-          setStations([])
           setFlowMessage(error.message)
         }
       }
     }
 
-    loadStations()
+    loadRelated()
     return () => {
       ignore = true
     }
@@ -258,6 +269,8 @@ export default function OrdersPage() {
           })}
           formatValue={(value, row, key) => {
             if (value === null || value === undefined || value === '') return '--'
+            if (key === 'user_id') return userNameById[String(value)] || `用户 #${value}`
+            if (key === 'equipment_id') return equipCodeById[String(value)] || `设备 #${value}`
             if (key === 'start_station_id' || key === 'end_station_id') {
               const station = stations.find((item) => Number(item.id) === Number(value))
               return station?.station_name || `站点 #${value}`

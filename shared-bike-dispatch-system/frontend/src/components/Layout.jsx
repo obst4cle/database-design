@@ -3,12 +3,15 @@ import { NavLink, Navigate, useNavigate } from 'react-router-dom'
 const navItems = [
   { to: '/dashboard', label: '运营看板' },
   { to: '/users', label: '会员管理' },
+  { to: '/user-ranks', label: '会员等级' },
   { to: '/stations', label: '站点管理' },
   { to: '/equipments', label: '车辆设备' },
   { to: '/orders', label: '订单大厅' },
   { to: '/transactions', label: '财务流水' },
   { to: '/coupons', label: '营销活动' },
   { to: '/staffs', label: '调度人员' },
+  { to: '/maintenance-logs', label: '维修记录' },
+  { to: '/dispatch-tasks', label: '调度工单' },
   { to: '/operations', label: '调度与售后' }
 ]
 

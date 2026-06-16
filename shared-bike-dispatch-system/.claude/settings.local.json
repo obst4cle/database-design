@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --check src/routes/stations.js)",
+      "Bash(node --check src/routes/orders.js)",
+      "Bash(node --check src/routes/dispatch.js)",
+      "Bash(mysql -u root -p123 -e \"ALTER TABLE shared_bike_dispatch.stations DROP COLUMN available_slots;\")",
+      "Bash(mysql -u root -p123 -e \"DESCRIBE shared_bike_dispatch.stations;\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"alice\",\"password\":\"password123\"}')",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('list count:', len\\(d['data']['list']\\), '| total:', d['data']['total']\\)\")",
+      "Bash(node --check src/routes/dashboard.js)",
+      "Bash(python3 -m json.tool)"
+    ]
+  }
+}

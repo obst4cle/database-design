@@ -46,6 +46,24 @@ export default function TransactionsPage() {
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [selectedTx, setSelectedTx] = useState(null)
   const [expandedDates, setExpandedDates] = useState({})
+  const [users, setUsers] = useState([])
+  const [orders, setOrders] = useState([])
+
+  const userNameById = useMemo(() => users.reduce((map, u) => { map[String(u.id)] = u.username; return map }, {}), [users])
+  const orderNoById = useMemo(() => orders.reduce((map, o) => { map[String(o.id)] = o.order_no; return map }, {}), [orders])
+
+  useEffect(() => {
+    let ignore = false
+    Promise.all([
+      http.get('/users', { params: { page: 1, pageSize: 100 } }),
+      http.get('/orders', { params: { page: 1, pageSize: 200 } })
+    ]).then(([userRes, orderRes]) => {
+      if (ignore) return
+      setUsers(userRes.data?.list || userRes.data?.data?.list || [])
+      setOrders(orderRes.data?.list || orderRes.data?.data?.list || [])
+    }).catch(() => {})
+    return () => { ignore = true }
+  }, [])
 
   async function loadTransactions() {
     setLoading(true)
@@ -212,8 +230,8 @@ export default function TransactionsPage() {
                             return (
                               <div key={row.id} className="table-row transaction-grid" onClick={() => openDetail(row)} style={{ cursor: 'pointer' }}>
                                 <span className="tx-no">{row.tx_no}</span>
-                                <span className="tx-user">{row.user_id}</span>
-                                <span className="tx-order">{row.order_id ?? '--'}</span>
+                                <span className="tx-user">{userNameById[String(row.user_id)] || `用户 #${row.user_id}`}</span>
+                                <span className="tx-order">{row.order_id ? (orderNoById[String(row.order_id)] || `#${row.order_id}`) : '--'}</span>
                                 <span className="tx-type">{txTypeLabel(row.tx_type)}</span>
                                 <span className={`tx-amount ${amountClass}`}>{formatMoney(row.amount)}</span>
                                 <span className="tx-balance-before">{formatMoney(row.balance_before)}</span>
@@ -243,8 +261,8 @@ export default function TransactionsPage() {
               <div className="crud-form">
                 <div className="status-text">流水号：{selectedTx.tx_no}</div>
                 <div className="transaction-detail-grid">
-                  <div><strong>用户</strong><div>{selectedTx.user_id}</div></div>
-                  <div><strong>订单</strong><div>{selectedTx.order_id ?? '--'}</div></div>
+                  <div><strong>用户</strong><div>{userNameById[String(selectedTx.user_id)] || `用户 #${selectedTx.user_id}`}</div></div>
+                  <div><strong>订单</strong><div>{selectedTx.order_id ? (orderNoById[String(selectedTx.order_id)] || `#${selectedTx.order_id}`) : '--'}</div></div>
                   <div><strong>类型</strong><div>{txTypeLabel(selectedTx.tx_type)}</div></div>
                   <div><strong>渠道</strong><div>{selectedTx.channel ?? '--'}</div></div>
                   <div><strong>金额</strong><div className={`tx-amount ${Number(selectedTx.amount || 0) >= 0 ? 'amt-positive' : 'amt-negative'}`}>{formatMoney(selectedTx.amount)}</div></div>
